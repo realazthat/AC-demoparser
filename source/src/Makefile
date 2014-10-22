@@ -6,6 +6,7 @@ PLATFORM_PREFIX=native
 
 -include Makefile_local   # optional file, not in repository
 
+
 ifeq ($(ACDEBUG),yes)
 	CXXFLAGS= -O0
 	override CXXFLAGS+= -g -D_DEBUG
@@ -15,8 +16,8 @@ ifneq (,$(findstring clang,$(CXX)))
 	CXXFLAGS= -O3 -fomit-frame-pointer
 	override CXXFLAGS+= -Wall -fsigned-char
 else
-	CXXFLAGS= -O3 -fomit-frame-pointer
-	override CXXFLAGS+= -Wall -fsigned-char -ffast-math -rdynamic
+	CXXFLAGS= -O3 -fomit-frame-pointer  -std=c++11
+	override CXXFLAGS+= -Wall -fsigned-char -ffast-math #-rdynamic
 endif
 
 INCLUDES= -I. -Ibot -I../enet/include
@@ -32,12 +33,23 @@ MV=mv
 ifneq (,$(findstring MINGW,$(PLATFORM)))
 WINDRES= windres
 CLIENT_INCLUDES= $(INCLUDES) -I../include
-CLIENT_LIBS= -mwindows -L../lib -lSDL -lSDL_image -lzdll -lopengl32 -lenet -lOpenAL32 -llibvorbisfile -llibintl -lws2_32 -lwinmm -lcurl
+CLIENT_LIBS= -mwindows -L../lib -L../lib/curl_mingw -lSDL -lSDL_image  -lopengl32 -lenet -lOpenAL32 -llibvorbisfile -llibintl -lcurl -lws2_32 -lwinmm -lidn  -lrtmp -lssl -lcrypto -lssh2 -lwldap32 -lzdll
+STATS_LIBS= -mwindows -L../lib -L../lib/curl_mingw  -lSDL -lenet -llibintl -lcurl -lws2_32 -lwinmm -lidn  -lrtmp -lssl -lcrypto -lssh2 -lwldap32 -lzdll
 else
 USRLIB=$(shell if [ -e /usr/lib64 ]; then echo "/usr/lib64"; else echo "/usr/lib"; fi)
 CLIENT_INCLUDES= $(INCLUDES) -I/usr/include `sdl-config --cflags` -idirafter ../include
 CLIENT_LIBS= -L../enet/.libs -lenet -L$(USRLIB) -lX11 `sdl-config --libs` -lSDL_image -lz -lGL -lopenal -lvorbisfile -lcurl
+STATS_LIBS= -L../enet/.libs -lenet -L$(USRLIB) -lX11 `sdl-config --libs` -lSDL_image -lz -lGL -lopenal -lvorbisfile -lcurl
 endif
+
+
+STATS_OBJS= \
+	stream.o \
+	protocol.o \
+	zip.o \
+	stats_main.o \
+	stats.o \
+	logstats.o
 
 CLIENT_OBJS= \
 	crypto.o \
@@ -92,7 +104,9 @@ CLIENT_OBJS= \
 	bot/bot_util.o \
 	bot/bot_waypoint.o \
 	bot/ac_bot.o \
-	bot/ac_bot_ai.o
+	bot/ac_bot_ai.o \
+	stats.o \
+	logstats.o
 
 CLIENT_PCH= cube.h.gch
 
@@ -126,7 +140,7 @@ endif
 
 default: all
 
-all: client server
+all: client server stats
 
 ../enet/Makefile:
 	cd ../enet; ./configure --enable-shared=no --enable-static=yes
@@ -138,7 +152,7 @@ clean-enet: ../enet/Makefile
 	$(MAKE) -C ../enet/ clean
 
 clean:
-	-$(RM) $(CLIENT_PCH) $(CLIENT_OBJS) $(SERVER_OBJS) $(MASTER_OBJS) ac_client ac_server ac_master
+	-$(RM) $(CLIENT_PCH) $(CLIENT_OBJS) $(SERVER_OBJS) $(MASTER_OBJS) $(STATS_OBJS) ac_stats ac_client ac_server ac_master
 #	-$(MAKE) -C ../enet/ clean
 
 %.h.gch: %.h
@@ -164,6 +178,9 @@ server: $(SERVER_OBJS)
 master: $(MASTER_OBJS)
 	$(CXX) $(CXXFLAGS) -o ../../bin_win32/ac_master.exe $(MASTER_OBJS) $(SERVER_LIBS)
 
+stats: libenet $(STATS_OBJS)
+	$(CXX) $(CXXFLAGS) -o ../../bin_win32/ac_stats $(STATS_OBJS) $(STATS_LIBS)
+
 client_install: client
 server_install: server
 
@@ -175,6 +192,9 @@ server: libenet $(SERVER_OBJS)
 	$(CXX) $(CXXFLAGS) -o ac_server $(SERVER_OBJS) $(SERVER_LIBS)
 master: libenet $(MASTER_OBJS)
 	$(CXX) $(CXXFLAGS) -o ac_master $(MASTER_OBJS) $(SERVER_LIBS)
+
+stats: libenet $(STATS_OBJS)
+	$(CXX) $(CXXFLAGS) -o ac_stats $(STATS_OBJS) $(STATS_LIBS)
 
 client_install: client
 	install -d ../../bin_unix/
