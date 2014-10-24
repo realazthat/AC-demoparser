@@ -47,8 +47,9 @@ STATS_OBJS= \
 	stream.o \
 	protocol.o \
 	zip.o \
-	stats_main.o \
 	stats.o \
+	stats_kludges.o \
+	stats_entry.o \
 	logstats.o
 
 CLIENT_OBJS= \
@@ -179,7 +180,7 @@ master: $(MASTER_OBJS)
 	$(CXX) $(CXXFLAGS) -o ../../bin_win32/ac_master.exe $(MASTER_OBJS) $(SERVER_LIBS)
 
 stats: libenet $(STATS_OBJS)
-	$(CXX) $(CXXFLAGS) -o ../../bin_win32/ac_stats $(STATS_OBJS) $(STATS_LIBS)
+	$(CXX) $(CXXFLAGS) -DSTATS_STANDALONE=1 -o ../../bin_win32/ac_stats $(STATS_OBJS) $(STATS_LIBS)
 
 client_install: client
 server_install: server
@@ -194,7 +195,7 @@ master: libenet $(MASTER_OBJS)
 	$(CXX) $(CXXFLAGS) -o ac_master $(MASTER_OBJS) $(SERVER_LIBS)
 
 stats: libenet $(STATS_OBJS)
-	$(CXX) $(CXXFLAGS) -o ac_stats $(STATS_OBJS) $(STATS_LIBS)
+	$(CXX) $(CXXFLAGS) -DSTATS_STANDALONE=1 -o ac_stats $(STATS_OBJS) $(STATS_LIBS)
 
 client_install: client
 	install -d ../../bin_unix/

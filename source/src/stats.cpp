@@ -258,6 +258,7 @@ void stats_setupdemoplayback(const char* demopath)
     
     const char* file_path_ptr = NULL;
     if (demopath) {
+        
         demoplayback = opengzfile(demopath, "rb");
         file_path_ptr = demopath;
     } else {
@@ -270,7 +271,6 @@ void stats_setupdemoplayback(const char* demopath)
         file_path_ptr = file;
     }
     
-    std::string message;
     if(!demoplayback) {
         formatstring(msg)("could not read demo \"%s\"", file_path_ptr);
     } else if(demoplayback->read(&hdr, sizeof(demoheader))!=sizeof(demoheader) || memcmp(hdr.magic, DEMO_MAGIC, sizeof(hdr.magic)))
@@ -1697,117 +1697,6 @@ void rstats()
 
 
 
-#ifdef STATS_STANDALONE
-
-
-
-void fatal(const char *s, ...)    // failure exit
-{
-
-    throw std::runtime_error("stats::fatal()");
-}
-
-bool interceptkey(int sym)
-{
-    throw std::runtime_error("stats::interceptkey()");
-    return false;
-}
-
-
-
-
-int variable(const char *name, int min, int cur, int max, int *storage, void (*fun)(), bool persist)
-{
-    fprintf(stderr,"variable(name=\"%s\")\n", name);
-
-    return 0;
-}
-bool addcommand(const char *name, void (*fun)(), const char *sig)
-{
-    fprintf(stderr,"addcommand(name=\"%s\")\n", name);
-    
-    return true;
-}
-
-void clientlogf(const char *s, ...)
-{
-    va_list args;
-    va_start(args, s);
-
-    fprintf(stderr,s,args);
-    va_end(args);
-
-}
-void conoutf(const char *s, ...)
-{
-    va_list args;
-    va_start(args, s);
-
-    fprintf(stderr,s,args);
-    va_end(args);
-}
-
-
-bool identexists(const char *name)
-{
-    return false;
-}
-
-void neterr(const char* s)
-{
-    fputs(s,stderr);
-}
-
-authkey *findauthkey(const char *desc)
-{
-    return NULL;
-}
-
-bool weapon::valid(int id) { return id>=0 && id<NUMGUNS; }
-
-itemstat ammostats[NUMGUNS];
-guninfo guns[NUMGUNS];
-
-
-
-void removebounceents(playerent*)
-{
-    
-}
-void zapplayerflags(playerent*){}
-void cleanplayervotes(playerent*){}
-void togglespect(){}
-
-audiomanager audiomgr;
-audiomanager::audiomanager(){}
-void audiomanager::detachsounds(playerent*){}
-void removedynlights(physent*){}
-physent *camera1;
-
-int lastmillis;
-
-const int weapon::weaponchangetime = 0;
-bufferhashtable::~bufferhashtable(){}
-sbuffer* bufferhashtable::find(char*){
-    return NULL;
-}
-
-sbuffer::~sbuffer(){}
-//#include "server.h"
-
-
-int entry(int argc, const char** argv);
-
-int CALLBACK WinMain(
-    HINSTANCE   hInstance,
-    HINSTANCE   hPrevInstance,
-    LPSTR       lpCmdLine,
-    int         nCmdShow
-    )
-{
-    return entry(__argc, (const char**)(__argv));
-}
-#endif //STATS_STANDALONE
 
 
 

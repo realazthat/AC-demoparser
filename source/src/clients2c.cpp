@@ -382,7 +382,6 @@ void onChangeVote(int mod, int id)
     }
 }
 
-
 VARP(voicecomsounds, 0, 1, 2);
 bool medals_arrived=0;
 medalsst a_medals[END_MDS];
@@ -395,7 +394,6 @@ void parsemessages(int cn, playerent *d, ucharbuf &p, bool demo = false)
     while(p.remaining())
     {
         type = getint(p);
-
 
         if(demo && watchingdemo && demoprotocol == 1132)
         {
@@ -424,7 +422,6 @@ void parsemessages(int cn, playerent *d, ucharbuf &p, bool demo = false)
         {
             case SV_SERVINFO:  // welcome message from the server
             {
-                
                 int mycn = getint(p), prot = getint(p);
                 if(prot!=CUR_PROTOCOL_VERSION && !(watchingdemo && prot == -PROTOCOL_VERSION))
                 {
@@ -432,9 +429,6 @@ void parsemessages(int cn, playerent *d, ucharbuf &p, bool demo = false)
                     conoutf("\f3if this occurs a lot, obtain an upgrade from \f1http://assault.cubers.net");
                     if(watchingdemo) conoutf("breaking loop : \f3this demo is using a different protocol\f5 : end it now!"); // SVN-WiP-bug: causes endless retry loop else!
                     else disconnect();
-                    
-                    
-
                     return;
                 }
                 sessionid = getint(p);
@@ -550,9 +544,6 @@ void parsemessages(int cn, playerent *d, ucharbuf &p, bool demo = false)
                 int revision = getint(p);
                 localwrongmap = !changemapserv(text, mode, downloadable, revision);
                 if(m_arena && joining>2) deathstate(player1);
-                
-                
-                
                 break;
             }
 

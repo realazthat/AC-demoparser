@@ -22,7 +22,6 @@ int entry(int argc, const char** argv)
         
         std::string demopath = demoArg.getValue();
         
-        
         std::ofstream out,debug;
         logstats_out_ptr = &std::cout;
         logstats_debug_ptr = NULL;
@@ -62,4 +61,29 @@ int entry(int argc, const char** argv)
 }
 
 
+/**
+ * http://nadeausoftware.com/articles/2012/01/c_c_tip_how_use_compiler_predefined_macros_detect_operating_system#
+ */
+#if defined(_WIN32) || defined(_WIN64)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+int CALLBACK WinMain(
+    HINSTANCE   hInstance,
+    HINSTANCE   hPrevInstance,
+    LPSTR       lpCmdLine,
+    int         nCmdShow
+    )
+{
+    return entry(__argc, (const char**)(__argv));
+}
+
+#else
+
+int main(int argc, const char** argv)
+{
+    return entry(argc, argv);
+}
+
+#endif
 
