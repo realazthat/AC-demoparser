@@ -1,6 +1,7 @@
 
 #include "logstats.hpp"
 
+#include <set>
 #include <iostream>
 #include <fstream>
 #include <cctype>

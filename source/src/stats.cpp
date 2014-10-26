@@ -567,7 +567,7 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
             case SV_TEXT:
                 getstring(text, p);
                 
-                logstats("SV_TEXT", {{"text",text}}, event_logdata);
+                logstats("SV_TEXT", {{"text",(const char*)text}}, event_logdata);
                 
                 break;
 
@@ -606,7 +606,7 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                     , {
                           {"revision", revision}
                         , {"mode", mode}
-                        , {"name",text}}
+                        , {"name",(const char*)text}}
                     , event_logdata);
                 break;
             }
@@ -647,7 +647,7 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 }
                 
                 logstats("SV_SWITCHNAME"
-                    , {{"name", text}}
+                    , {{"name", (const char*)text}}
                     , event_logdata);
                 break;
             }
@@ -685,7 +685,7 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                                     
                     logstats("SV_INITCLIENT"
                         ,{    {"ccn", cn}
-                            , {"name", text}
+                            , {"name", (const char*)text}
                             , {"team", team}
                             , {"pip", address}
                             , {"success", 0}}
@@ -723,7 +723,7 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 
                 logstats("SV_INITCLIENT"
                     ,{    {"ccn", cn}
-                        , {"name", text}
+                        , {"name", (const char*)text}
                         , {"team", d->team}
                         , {"pip", address}
                         , {"success", 1}}
@@ -1231,7 +1231,7 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
             {
                 getstring(text, p);
                 
-                logstats("SV_SERVMSG", {{"text",text}}, event_logdata);
+                logstats("SV_SERVMSG", {{"text",(const char*)text}}, event_logdata);
                 //conoutf("%s", text);
                 break;
             }
@@ -1638,7 +1638,7 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 int clientnum = getint(p);
                 
                 logstats("SV_DEMOPLAYBACK"
-                    , {   {"demofile", demofile}
+                    , {   {"demofile", (const char*)demofile}
                         , {"clientnum", clientnum}});
                         
                 break;
