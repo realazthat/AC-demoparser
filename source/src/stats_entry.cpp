@@ -37,7 +37,7 @@ int entry(int argc, const char** argv)
         {
             debug.open(logArg.getValue(), std::ios::app);
             
-            logstats_out_ptr = &debug;
+            logstats_debug_ptr = &debug;
         }
         
         
