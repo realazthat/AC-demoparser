@@ -33,13 +33,13 @@ MV=mv
 ifneq (,$(findstring MINGW,$(PLATFORM)))
 WINDRES= windres
 CLIENT_INCLUDES= $(INCLUDES) -I../include
-CLIENT_LIBS= -mwindows -L../lib -L../lib/curl_mingw -lSDL -lSDL_image  -lopengl32 -lenet -lOpenAL32 -llibvorbisfile -llibintl -lcurl -lws2_32 -lwinmm -lidn  -lrtmp -lssl -lcrypto -lssh2 -lwldap32 -lzdll
+CLIENT_LIBS= -mwindows -L../lib -L../lib/curl_mingw -lSDL -lSDL_image -lopengl32 -lenet -lOpenAL32 -llibvorbisfile -llibintl -lcurl -lws2_32 -lwinmm -lidn  -lrtmp -lssl -lcrypto -lssh2 -lwldap32 -lzdll
 STATS_LIBS= -mwindows -L../lib -L../lib/curl_mingw  -lSDL -lenet -llibintl -lcurl -lws2_32 -lwinmm -lidn  -lrtmp -lssl -lcrypto -lssh2 -lwldap32 -lzdll
 else
 USRLIB=$(shell if [ -e /usr/lib64 ]; then echo "/usr/lib64"; else echo "/usr/lib"; fi)
 CLIENT_INCLUDES= $(INCLUDES) -I/usr/include `sdl-config --cflags` -idirafter ../include
 CLIENT_LIBS= -L../enet/.libs -lenet -L$(USRLIB) -lX11 `sdl-config --libs` -lSDL_image -lz -lGL -lopenal -lvorbisfile -lcurl
-STATS_LIBS= -L../enet/.libs -lenet -L$(USRLIB) -lX11 `sdl-config --libs` -lSDL_image -lz -lGL -lopenal -lvorbisfile -lcurl
+STATS_LIBS=  -lenet -L$(USRLIB) -lX11 `sdl-config --libs` -lSDL_image -lz -lGL -lopenal -lvorbisfile -lcurl # /usr/lib/libprofiler.so.0
 endif
 
 
@@ -179,7 +179,7 @@ server: $(SERVER_OBJS)
 master: $(MASTER_OBJS)
 	$(CXX) $(CXXFLAGS) -o ../../bin_win32/ac_master.exe $(MASTER_OBJS) $(SERVER_LIBS)
 
-stats: libenet $(STATS_OBJS)
+stats:  $(STATS_OBJS)
 	$(CXX) $(CXXFLAGS) -DSTATS_STANDALONE=1 -o ../../bin_win32/ac_stats $(STATS_OBJS) $(STATS_LIBS)
 
 client_install: client
@@ -194,7 +194,7 @@ server: libenet $(SERVER_OBJS)
 master: libenet $(MASTER_OBJS)
 	$(CXX) $(CXXFLAGS) -o ac_master $(MASTER_OBJS) $(SERVER_LIBS)
 
-stats: libenet $(STATS_OBJS)
+stats: $(STATS_OBJS)
 	$(CXX) $(CXXFLAGS) -DSTATS_STANDALONE=1 -o ac_stats $(STATS_OBJS) $(STATS_LIBS)
 
 client_install: client

@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <cctype>
+#include <algorithm>
 #include <boost/format.hpp>
 
 
@@ -16,6 +17,17 @@
 
 
 #include "protocol.h"
+
+
+
+typedef std::map<std::string, boost::any> logdata_t;
+
+logdata_t merge_logdata(const logdata_t& data0, const logdata_t& data1);
+void logstats(const char* type, const logdata_t& data1, const logdata_t& data0=logdata_t());
+
+
+
+
 extern const char* event_to_str(int type);
 
 std::set<std::string> all_output_types()
@@ -27,6 +39,7 @@ std::set<std::string> all_output_types()
         result.insert(event_to_str(type));
     }
     
+    result.insert("nextplayback");
     return result;
 }
 
@@ -97,7 +110,79 @@ struct any_visitor {
 
 
 
-
+inline
+size_t escaped(char* out, size_t maxlen, char c)
+{
+    switch (c)
+    {
+    
+        case ('"'): {
+            const char replacement[] = "\\\"";
+            size_t copy_size = std::min<size_t>(maxlen, 2);
+            memcpy(out, replacement, copy_size);
+            return copy_size;
+        } case ('\\'):  {
+            const char replacement[] = "\\\\";
+            size_t copy_size = std::min<size_t>(maxlen, 2);
+            memcpy(out, replacement, copy_size);
+            return copy_size;
+        }  case ('/'):  {
+            const char replacement[] = "\\/";
+            size_t copy_size = std::min<size_t>(maxlen, 2);
+            memcpy(out, replacement, copy_size);
+            return copy_size;
+        } case ('\b'):  {
+            const char replacement[] = "\\b";
+            size_t copy_size = std::min<size_t>(maxlen, 2);
+            memcpy(out, replacement, copy_size);
+            return copy_size;
+        } case ('\f'):  {
+            const char replacement[] = "\\f";
+            size_t copy_size = std::min<size_t>(maxlen, 2);
+            memcpy(out, replacement, copy_size);
+            return copy_size;
+        } case ('\n'):  {
+            const char replacement[] = "\\n";
+            size_t copy_size = std::min<size_t>(maxlen, 2);
+            memcpy(out, replacement, copy_size);
+            return copy_size;
+        } case ('\r'):  {
+            const char replacement[] = "\\r";
+            size_t copy_size = std::min<size_t>(maxlen, 2);
+            memcpy(out, replacement, copy_size);
+            return copy_size;
+        } case ('\t'):  {
+            const char replacement[] = "\\t";
+            size_t copy_size = std::min<size_t>(maxlen, 2);
+            memcpy(out, replacement, copy_size);
+            return copy_size;
+        }
+        default: {
+            if (!std::isprint(c))
+            {
+                unsigned char uc = static_cast<unsigned char>(c);
+                
+                static const uint8_t low_mask = (1<<4)-1;
+                static const uint8_t high_mask = low_mask << 4;
+                static const char digits[] = {
+                          '0','1','2','3','4','5','6','7','8','9'
+                        , 'A', 'B', 'C', 'D', 'E', 'F'};
+                
+                
+                char replacement[] = {'\\', 'x', digits[(uc >> 4) & low_mask], digits[uc & low_mask]};
+                size_t copy_size = std::min<size_t>(maxlen, 4);
+                
+                memcpy(out, replacement, copy_size);
+                return copy_size;
+                
+            } else {
+                size_t copy_size = std::min<size_t>(maxlen, 1);
+                memcpy(out, &c, copy_size);
+                return copy_size;
+            }
+        }
+    }
+}
 std::string escaped(const std::string& data)
 {
     
@@ -263,3 +348,169 @@ void logstats(const char* type, const logdata_t& data1, const logdata_t& data0)
         debug << std::endl;
     }
 }
+
+
+
+dict_t::dict_t(const char* name)
+    : out(NULL), comma(false)
+{
+    reset(name);
+}
+
+dict_t::~dict_t()
+{
+    flush();
+}
+
+void dict_t::reset(const char* name)
+{
+    flush();
+    
+    if (output_types.count(name) != 0)
+    {
+        this->out = logstats_out_ptr;
+        
+        *out << "{";
+        comma = false;
+    } else {
+        this->out = NULL;
+    }
+}
+void dict_t::flush()
+{
+    
+    if (out)
+    {
+        *out << "}\n";
+        out = NULL;
+    }
+}
+
+
+static char huge_buffer[10001];
+
+void write_key(std::ostream& out, const char* key, bool comma)
+{
+    const char* key0 = key;
+    
+    int buffer_len = 0;
+    
+    if (comma)
+    {
+        huge_buffer[buffer_len++] = ',';
+        huge_buffer[buffer_len++] = ' ';
+    }
+    
+    huge_buffer[buffer_len++] = '"';
+    
+    while (*key)
+    {
+        buffer_len += escaped(huge_buffer + buffer_len, sizeof(huge_buffer) - buffer_len - 1, *key++);
+        assert(buffer_len < sizeof(huge_buffer));
+    }
+    
+    huge_buffer[buffer_len++] = '"';
+    assert(buffer_len < sizeof(huge_buffer));
+
+    huge_buffer[buffer_len++] = ':';
+    
+    out.write(huge_buffer,buffer_len);
+    
+}
+
+void write_value(std::ostream& out, const char* value)
+{
+    
+    int buffer_len = 0;
+    
+    huge_buffer[buffer_len++] = '"';
+    
+    while (*value)
+    {
+        buffer_len += escaped(huge_buffer + buffer_len, sizeof(huge_buffer) - buffer_len - 1, *value++);
+        assert(buffer_len < sizeof(huge_buffer));
+    }
+    
+    huge_buffer[buffer_len++] = '"';
+    
+    out.write(huge_buffer,buffer_len);
+    
+
+    
+}
+void dict_t::set(const char* key, double value)
+{
+    if (out)
+    {
+        write_key(*out, key, comma);
+        (*out) << value;
+    }
+}
+
+
+void dict_t::set(const char* key, float value)
+{
+    if (out)
+    {
+        write_key(*out, key, comma);
+        (*out) << value;
+        comma = true;
+    }
+}
+
+void dict_t::set(const char* key, bool value)
+{
+    if (out)
+    {
+        write_key(*out, key, comma);
+        (*out) << (value ? "true" : "false");
+        comma = true;
+    }
+}
+
+void dict_t::set(const char* key, int32_t value)
+{
+    if (out)
+    {
+        write_key(*out, key, comma);
+        (*out) << value;
+        comma = true;
+    }
+}
+
+void dict_t::set(const char* key, int64_t value)
+{
+    if (out)
+    {
+        write_key(*out, key, comma);
+        (*out) << value;
+        comma = true;
+    }
+}
+
+
+void dict_t::set(const char* key, uint64_t value)
+{
+    if (out)
+    {
+        write_key(*out, key, comma);
+        (*out) << value;
+        comma = true;
+    }
+}
+
+void dict_t::set(const char* key, const char* value)
+{
+    if (out)
+    {
+        write_key(*out, key, comma);
+        comma = true;
+        
+        write_value(*out, value);
+    }
+}
+void dict_t::set(const char* key, const std::string& value)
+{
+    return this->set(key,value.c_str());
+}
+

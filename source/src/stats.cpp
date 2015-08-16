@@ -15,6 +15,8 @@ static void stats_sendpacket(int n, int chan, ENetPacket *packet, int exclude, b
 static void stats_sendservmsg(const char *msg, int cn = -1);
 static void stats_sendf(int cn, int chan, const char *format, ...);
 static void stats_enddemoplayback();
+
+static void stats_parsepositions(ucharbuf &p);
 static void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo = false);
 static playerent *stats_getclient(int cn);
 static playerent *stats_newclient(int cn);
@@ -311,14 +313,19 @@ void stats_readdemo()
     while(true)
     {
         //logstats("stats_readdemo.while.1", {{"nextplayback",nextplayback},{"gamemillis",gamemillis}});
-        logstats("nextplayback", {{"nextplayback",nextplayback}});
-
+        
+        {
+            dict_t outdata("nextplayback");
+            outdata.set("typestr", "nextplayback");
+            outdata.set("nextplayback", nextplayback);
+        }
+        
         int chan, len;
         if(demoplayback->read(&chan, sizeof(chan))!=sizeof(chan) ||
            demoplayback->read(&len, sizeof(len))!=sizeof(len))
         {
             stats_enddemoplayback();
-            logstats("stats_readdemo.return.1", {});
+            //logstats("stats_readdemo.return.1", {});
             return;
         }
         lilswap(&chan, 1);
@@ -328,7 +335,7 @@ void stats_readdemo()
         {
             if(packet) enet_packet_destroy(packet);
             stats_enddemoplayback();
-            logstats("stats_readdemo.return.2", {});
+            //logstats("stats_readdemo.return.2", {});
             return;
         }
         
@@ -339,7 +346,7 @@ void stats_readdemo()
         if(demoplayback->read(&nextplayback, sizeof(nextplayback))!=sizeof(nextplayback))
         {
             stats_enddemoplayback();
-            logstats("stats_readdemo.return.3", {});
+            //logstats("stats_readdemo.return.3", {});
             return;
         }
         lilswap(&nextplayback, 1);
@@ -412,20 +419,21 @@ void stats_sendpacket(int n, int chan, ENetPacket *packet, int exclude, bool dem
 
 void stats_servertoclient(int chan, uchar *buf, int len, bool demo)   // processes any updates from the server
 {
-    logdata_t logdata{{"chan",chan}, {"len",len}, {"demo",demo}};
+    
+    //logdata_t logdata{{"chan",chan}, {"len",len}, {"demo",demo}};
     //logstats("stats_servertoclient.begin", {}, logdata);
 
     ucharbuf p(buf, len);
     switch(chan)
     {
         ///todo
-        //case 0: parsepositions(p); break;
+        //case 0: stats_parsepositions(p); break;
         case 1: {
             stats_parsemessages(-1, NULL, p, demo);
             
             if (p.remaining() != 0)
             {
-                logstats("stats_servertoclient.WARNING", {{"p.remaining()",p.remaining()}}, logdata);
+                //logstats("stats_servertoclient.WARNING", {{"p.remaining()",p.remaining()}}, logdata);
             }
             break;
         }
@@ -435,6 +443,7 @@ void stats_servertoclient(int chan, uchar *buf, int len, bool demo)   // process
     
 }
 
+#if 0
 void stats_parsepositions(ucharbuf &p)
 {
     int type;
@@ -496,7 +505,7 @@ void stats_parsepositions(ucharbuf &p)
                 f = getuint(p);
             }
             int seqcolor = (f>>6)&1;
-            playerent *d = getclient(cn);
+            playerent *d = stats_getclient(cn);
             if(!d || seqcolor!=(d->lifesequence&1)) continue;
             vec oldpos(d->o);
             float oldyaw = d->yaw, oldpitch = d->pitch;
@@ -526,24 +535,30 @@ void stats_parsepositions(ucharbuf &p)
             f >>= 1;
             d->onladder = f&1;
             f >>= 2;
-            d->last_pos = totalmillis;
+            //d->last_pos = totalmillis;
             //updatecrouch(d, f&1);
             //updatepos(d);
             //updatelagtime(d);
+            /*
             logdata_t event_logdata {{"cn", cn},{"type", type},{"typestr", event_to_str(type)}};
 
-            logstats( type == SV_POS ? "SV_POS" : "SV_POSC",
-                    , {     {"cn": cn},
-                        , {"yaw":yaw},
-                        , {"pitch": pitch}
-                        , {"roll": roll}
-                        , {"scoping": scoping}
-                        , {"o.x": o.x}
-                        , {"o.y": o.y}
-                        , {"o.z": o.z}
-                        , {"vel": d->}
-                    }
+            logstats( type == SV_POS ? "SV_POS" : "SV_POSC"
+                    , {   {"cn", cn}
+                        , {"yaw",yaw}
+                        , {"pitch", pitch}
+                        , {"roll", roll}
+                        , {"scoping", scoping}
+                        , {"o.x", o.x}
+                        , {"o.y", o.y}
+                        , {"o.z", o.z}
+                        , {"vel.x", vel.x}
+                        , {"vel.y", vel.y}
+                        , {"vel.z", vel.z} }
                     , event_logdata);
+
+            */
+
+            break;
         }
 
         default:
@@ -552,13 +567,15 @@ void stats_parsepositions(ucharbuf &p)
     }
 }
 
+#endif
+
 
 
 void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
 {
-    logstats("packet", {{"cn", cn}});
+    //logstats("packet", {{"cn", cn}});
     
-    
+    int cn0 = cn;
     
     static char text[MAXTRANS];
     int type, joining = 0;
@@ -568,8 +585,9 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
     {
         type = getint(p);
 
-        logdata_t event_logdata {{"cn", cn},{"type", type},{"typestr", event_to_str(type)}};
-        logstats("event", event_logdata);
+        //logdata_t event_logdata {{"cn", cn},{"type", type},{"typestr", event_to_str(type)}};
+        //logstats("event", event_logdata);
+        
 
         if(demo && stats_watchingdemo && stats_demoprotocol == 1132)
         {
@@ -608,11 +626,14 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                     if(stats_watchingdemo) conoutf("breaking loop : \f3this demo is using a different protocol\f5 : end it now!"); // SVN-WiP-bug: causes endless retry loop else!
                     //else disconnect();
                     
-                    logstats("SV_SERVINFO.error"
-                        , {   {"prot",prot}
-                            , {"CUR_PROTOCOL_VERSION",STATS_CUR_PROTOCOL_VERSION}
-                            , {"mycn",mycn}}
-                        , event_logdata);
+                    ///FIXME: prolly want to throw an error or something here
+                    
+                    dict_t outdata(event_to_str(type));
+                    outdata.set("cn", cn0);
+                    outdata.set("typestr", event_to_str(type));
+                    outdata.set("prot", prot);
+                    outdata.set("CUR_PROTOCOL_VERSION",STATS_CUR_PROTOCOL_VERSION);
+                    outdata.set("mycn",mycn);
 
                     return;
                 }
@@ -626,6 +647,11 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 joining = getint(p);
                 //player1->resetspec();
                 //resetcamera();
+
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("joining", joining);
                 break;
             }
             case SV_CLIENT:
@@ -638,6 +664,11 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
             case SV_SOUND:
             {
                 int sound = getint(p);
+
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("sound", sound);
                 //audiomgr.playsound(sound, d);
                 break;
             }
@@ -646,6 +677,11 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 playerent *d = stats_getclient(getint(p));
                 //if(d) d->lastvoicecom = lastmillis;
                 int t = getint(p);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("t", t);
+                
                 if(!d || !(d->muted || d->ignored))
                 {
                     //if ( voicecomsounds == 1 || (voicecomsounds == 2 && m_teammode) ) audiomgr.playsound(t, SP_HIGH);
@@ -655,6 +691,11 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
             case SV_VOICECOM:
             {
                 int t = getint(p);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("t", t);
+                
                 if(!d || !(d->muted || d->ignored))
                 {
                     //if ( voicecomsounds == 1 ) audiomgr.playsound(t, SP_HIGH);
@@ -668,26 +709,28 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
             {
                 int cn = getint(p);
                 getstring(text, p);
-                filtertext(text, text, FTXT__CHAT);
-                playerent *d = stats_getclient(cn);
-                if(!d) break;
-                //if(d->ignored) clientlogf("ignored: %s%s %s", colorname(d), type == SV_TEAMTEXT ? ":" : "", text);
-                //else
-                //{
-                //    if(m_teammode) conoutf(type == SV_TEAMTEXTME ? "\f1%s %s" : "%s:\f1 %s", colorname(d), highlight(text));
-                //    else conoutf(type == SV_TEAMTEXTME ? "\f0%s %s" : "%s:\f0 %s", colorname(d), highlight(text));
-                //}
+
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("text", (const char*)text);
+                
+
                 break;
             }
 
             case SV_TEXTME:
             case SV_TEXT:
+            {
                 getstring(text, p);
                 
-                logstats("SV_TEXT", {{"text",(const char*)text}}, event_logdata);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("text",(const char*)text);
                 
                 break;
-
+            }
             case SV_TEXTPRIVATE:
             {
                 int cn = getint(p);
@@ -719,12 +762,12 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 //localwrongmap = !changemapserv(text, mode, downloadable, revision);
                 //if(m_arena && joining>2) deathstate(player1);
                 
-                logstats("SV_MAPCHANGE"
-                    , {
-                          {"revision", revision}
-                        , {"mode", mode}
-                        , {"name",(const char*)text}}
-                    , event_logdata);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("revision",revision);
+                outdata.set("mode",mode);
+                outdata.set("name",(const char*)text);
                 break;
             }
 
@@ -741,7 +784,16 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
 
             case SV_MAPIDENT:
             {
-                loopi(2) getint(p);
+                int unknown_ints[2];
+                loopi(2) unknown_ints[i] = getint(p);
+                
+
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("unknown_ints[0]", unknown_ints[0]);
+                outdata.set("unknown_ints[1]", unknown_ints[1]);
+                
                 break;
             }
 
@@ -763,14 +815,20 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                     //updateclientname(d);
                 }
                 
-                logstats("SV_SWITCHNAME"
-                    , {{"name", (const char*)text}}
-                    , event_logdata);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("name", (const char*)text);
                 break;
             }
             case SV_SWITCHTEAM:
             {
-                getint(p);
+                int unknown_int = getint(p);
+
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("unknown_int", unknown_int);
                 break;
             }
             case SV_SWITCHSKIN:
@@ -799,14 +857,15 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                     {
                         getint(p);
                     }
-                                    
-                    logstats("SV_INITCLIENT"
-                        ,{    {"ccn", cn}
-                            , {"name", (const char*)text}
-                            , {"team", team}
-                            , {"pip", address}
-                            , {"success", 0}}
-                        , event_logdata);
+                    
+                    dict_t outdata(event_to_str(type));
+                    outdata.set("cn", cn0);
+                    outdata.set("typestr", event_to_str(type));
+                    outdata.set("ccn",cn);
+                    outdata.set("name",(const char*)text);
+                    outdata.set("team",team);
+                    outdata.set("pip",address);
+                    outdata.set("success",0);
 
                     break;
                 }
@@ -837,14 +896,15 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                     d->address = address;
                     
                 }
-                
-                logstats("SV_INITCLIENT"
-                    ,{    {"ccn", cn}
-                        , {"name", (const char*)text}
-                        , {"team", d->team}
-                        , {"pip", address}
-                        , {"success", 1}}
-                    , event_logdata);
+            
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("ccn",cn);
+                outdata.set("name",(const char*)text);
+                outdata.set("team",d->team);
+                outdata.set("pip",address);
+                outdata.set("success",1);
                 /*
                 if(m_flags) loopi(2)
                 {
@@ -861,6 +921,10 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 int cn = getint(p);
                 playerent *d = stats_getclient(cn);
                 
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("ccn",cn);
                 
                 if(!d) break;
                 //if(d->name[0]) conoutf(_("player %s disconnected"), colorname(d));
@@ -904,6 +968,15 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 loopi(NUMGUNS) s->mag[i] = getint(p);
                 s->state = CS_SPAWNING;
                 //if(s->lifesequence==0) s->resetstats(); //NEW
+
+                ///FIXME: dump s->ammo and s->mag
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("lifesequence",s->lifesequence);
+                outdata.set("health",s->health);
+                outdata.set("armour",s->armour);
+                outdata.set("gunselect",s->gunselect);
                 break;
             }
             case SV_SPAWNSTATE:
@@ -940,9 +1013,21 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                     //if(m_botmode) BotManager.RespawnBots();
                 //}
                 //addmsg(SV_SPAWN, "rii", stats_player1->lifesequence, player1->weaponsel->type);
-                //stats_player1->weaponswitch(player1->primweap);
+                //stats_player1->weaponswitch(stats_player1->primweap);
                 //stats_player1->weaponchanging -= weapon::weaponchangetime/2;
                 //if(stats_player1->lifesequence==0) stats_player1->resetstats(); //NEW
+
+                ///FIXME: dump ammoi and magi
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("lifesequence",lifesequence);
+                outdata.set("health",health);
+                outdata.set("armour",armour);
+                outdata.set("setprimary",setprimary);
+                outdata.set("selectweapon",selectweapon);
+                outdata.set("arenaspawn",arenaspawn);
+ 
                 break;
             }
 
@@ -954,18 +1039,34 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 playerent *s = stats_getclient(scn);
                 
                 
-                if(!s || !weapon::valid(gun)) break;
+                if(!s || !weapon::valid(gun))
+                {
+                    dict_t outdata(event_to_str(type));
+                    outdata.set("cn", cn0);
+                    outdata.set("typestr", event_to_str(type));
+                    outdata.set("to.x", to.x);
+                    outdata.set("to.y", to.y);
+                    outdata.set("to.z", to.z);
+                    outdata.set("shooter", scn);
+                    outdata.set("gun", gun);
+                
+                    break;
+                }
                 loopk(3) from[k] = s->o.v[k];
-                logstats("SV_SHOTFX"
-                    , {   {"from.x", from.x}
-                        , {"from.y", from.y}
-                        , {"from.z", from.z}
-                        , {"to.x", to.x}
-                        , {"to.y", to.y}
-                        , {"to.z", to.z}
-                        , {"shooter", scn}
-                        , {"gun", gun} }
-                    , event_logdata);
+                
+                
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("from.x",from.x);
+                outdata.set("from.y",from.y);
+                outdata.set("from.z",from.z);
+                outdata.set("to.x",to.x);
+                outdata.set("to.y",to.y);
+                outdata.set("to.z",to.z);
+                outdata.set("shooter",scn);
+                outdata.set("gun",gun);
+                
                     
                 //if(gun==GUN_SHOTGUN) createrays(from, to);
                 //s->lastaction = lastmillis;
@@ -989,15 +1090,17 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 loopk(3) to[k] = getint(p)/DMF;
                 int nademillis = getint(p);
                 
-                logstats("SV_THROWNADE"
-                    , {   {"from.x", from.x}
-                        , {"from.y", from.y}
-                        , {"from.z", from.z}
-                        , {"to.x", to.x}
-                        , {"to.y", to.y}
-                        , {"to.z", to.z}
-                        , {"nademillis", nademillis}}
-                    , event_logdata);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("from.x",from.x);
+                outdata.set("from.y",from.y);
+                outdata.set("from.z",from.z);
+                outdata.set("to.x",to.x);
+                outdata.set("to.y",to.y);
+                outdata.set("to.z",to.z);
+                outdata.set("nademillis",nademillis);
+                
                 if(!d) break;
                 d->lastaction = stats_lastmillis;
                 d->weaponchanging = 0;
@@ -1016,6 +1119,13 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 int cn = getint(p), gun = getint(p);
                 playerent *p = stats_getclient(cn);
                 //if(p && p!=player1) p->weapons[gun]->reload(false);
+
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("ccn", cn);
+                outdata.set("gun", gun);
+
                 break;
             }
 
@@ -1064,15 +1174,18 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 //actor->pstatdamage[gun]+=damage; //NEW
                 
                 
-                logstats(type == SV_DAMAGE ? "SV_DAMAGE" : "SV_GIBDAMAGE"
-                    , {   {"target",tcn}
-                        , {"actor",acn}
-                        , {"damage",damage}
-                        , {"armour",armour}
-                        , {"health",health}
-                        , {"gun",gun}
-                        , {"powershot",(bool)(type==SV_GIBDAMAGE)}}
-                    , event_logdata);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("target",tcn);
+                outdata.set("actor",acn);
+                outdata.set("damage",damage);
+                outdata.set("armour",armour);
+                outdata.set("health",health);
+                outdata.set("gun",gun);
+                outdata.set("powershot",(bool)(type==SV_GIBDAMAGE));
+                
+                
                 break;
             }
 
@@ -1114,6 +1227,16 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 vec dir;
                 loopk(3) dir[k] = getint(p)/DNF;
                 //stats_player1->hitpush(damage, dir, NULL, gun);
+
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("gun",gun);
+                outdata.set("damage",damage);
+                outdata.set("dir.x",dir[0]);
+                outdata.set("dir.y",dir[1]);
+                outdata.set("dir.z",dir[2]);
+                 
                 break;
             }
 
@@ -1121,14 +1244,16 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
             case SV_DIED:
             {
                 int vcn = getint(p), acn = getint(p), frags = getint(p), gun = getint(p);
-                logstats(event_to_str(type)
-                    , {   {"victim", vcn}
-                        , {"actor", acn}
-                        , {"frags", frags}
-                        , {"gun", gun}
-                        , {"powershot", (bool)(type==SV_GIBDIED)}}
-                    , event_logdata);
                 
+                
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("victim",vcn);
+                outdata.set("actor",acn);
+                outdata.set("frags",frags);
+                outdata.set("gun",gun);
+                outdata.set("powershot", (bool)(type==SV_GIBDIED));
                 //playerent *victim = stats_getclient(vcn), *actor = stats_getclient(acn);
                 //if(!actor) break;
                 //if ( m_mp(gamemode) ) actor->frags = frags;
@@ -1151,20 +1276,23 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                     loopi(NUMGUNS) mag[i] = getint(p);
                     
                     playerent *d = (cn == stats_getclientnum() ? stats_player1 : stats_newclient(cn));
-
-                    logstats("SV_RESUME"
-                        , {   {"ccn",cn}
-                            , {"state",state}
-                            , {"lifesequence", lifesequence}
-                            , {"primary", primary}
-                            , {"gunselect", gunselect}
-                            , {"flagscore", flagscore}
-                            , {"frags",frags}
-                            , {"deaths", deaths}
-                            , {"health", health}
-                            , {"armour", armour}
-                            , {"points", points}}
-                        , event_logdata);
+                    
+                    
+                    
+                    dict_t outdata(event_to_str(type));
+                    outdata.set("cn", cn0);
+                    outdata.set("typestr", event_to_str(type));
+                    outdata.set("ccn", cn);
+                    outdata.set("state", state);
+                    outdata.set("lifesequence", lifesequence);
+                    outdata.set("primary", primary);
+                    outdata.set("gunselect", gunselect);
+                    outdata.set("flagscore", flagscore);
+                    outdata.set("frags", frags);
+                    outdata.set("deaths", deaths);
+                    outdata.set("health", health);
+                    outdata.set("armour", armour);
+                    outdata.set("points", points);
                     
                     if(!d) continue;
                     /*
@@ -1220,6 +1348,11 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
             {
                 int i = getint(p);
                 //setspawn(i, true);
+                    dict_t outdata(event_to_str(type));
+                    outdata.set("cn", cn0);
+                    outdata.set("typestr", event_to_str(type));
+                    outdata.set("i", i);
+                    
                 break;
             }
 
@@ -1228,6 +1361,12 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 int i = getint(p), cn = getint(p);
                 //playerent *d = stats_getclient(cn);
                 //pickupeffects(i, d);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("ccn", cn);
+                outdata.set("i", i);
+
                 break;
             }
 
@@ -1301,9 +1440,10 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
             {
                 int millis = getint(p);
                 
-                logstats( "SV_PONG"
-                    , {{"millis", millis}}
-                    , event_logdata);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("millis", millis);
                     
                 //addmsg(SV_CLIENTPING, "i", stats_player1->ping = max(0, (player1->ping*5+totalmillis-millis)/6));
                 break;
@@ -1313,9 +1453,11 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
             {
                 int ping = getint(p);
                 
-                logstats( "SV_CLIENTPING"
-                    , {{"ping", ping}}
-                    , event_logdata);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("ping", ping);
+                
                 break;
             }
             case SV_GAMEMODE:
@@ -1329,10 +1471,12 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 int curgamemillis = getint(p);
                 int curgamelimit = getint(p);
                 
-                logstats("SV_TIMEUP"
-                    , {   {"curgamemillis", curgamemillis}
-                        , {"curgamelimit", curgamelimit}}
-                    , event_logdata);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("curgamemillis", curgamemillis);
+                outdata.set("curgamelimit", curgamelimit);
+                
                 //timeupdate(curgamemillis, curgamelimit);
                 break;
             }
@@ -1341,6 +1485,10 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
             {
                 int gun = getint(p);
                 //if(d) d->selectweapon(gun);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("gun", gun);
                 break;
             }
 
@@ -1348,7 +1496,11 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
             {
                 getstring(text, p);
                 
-                logstats("SV_SERVMSG", {{"text",(const char*)text}}, event_logdata);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("text", (const char*)text);
+                
                 //conoutf("%s", text);
                 break;
             }
@@ -1389,12 +1541,13 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 int actor = getint(p);
                 int flagtime = message == FM_KTFSCORE ? getint(p) : -1;
                 
-                logstats("SV_FLAGMSG"
-                    , {   {"flag", flag}
-                        , {"message", message}
-                        , {"actor", actor}
-                        , {"flagtime", flagtime}}
-                    , event_logdata);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("flag", flag);
+                outdata.set("message", message);
+                outdata.set("actor", actor);
+                outdata.set("flagtime", flagtime);
                 
                 //flagmsg(flag, message, actor, flagtime);
                 break;
@@ -1406,10 +1559,12 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 int flags = getint(p);
                 
                 
-                logstats("SV_FLAGCNT"
-                    , {   {"fcn", fcn}
-                        , {"flags", flags}}
-                    , event_logdata);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("fcn", fcn);
+                outdata.set("flags", flags);
+                
                 //playerent *p = stats_getclient(fcn);
                 //if(p) p->flagscore = flags;
                 break;
@@ -1419,10 +1574,11 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
             {
                 int acn = getint(p);
                 
-                                
-                logstats("SV_ARENAWIN"
-                    , {{"acn", acn}}
-                    , event_logdata);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("acn", acn);
+                
 
                 /*
                 playerent *alive = getclient(acn);
@@ -1448,9 +1604,11 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
             {
                 int cn = getint(p);
                 
-                logstats("SV_FORCEDEATH"
-                    , {{"ccn",cn}}
-                    , event_logdata);
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("ccn", cn);
+                
                 
                 playerent *d = cn==stats_getclientnum() ? stats_player1 : stats_newclient(cn);
                 if(!d) break;
@@ -1486,6 +1644,12 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
             case SV_TEAMDENY:
             {
                 int t = getint(p);
+
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("team", t);
+                
                 //if(m_teammode)
                 //{
                     //if(team_isvalid(t)) conoutf(_("you can't change to team %s"), team_string(t));
@@ -1510,11 +1674,14 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 playerent *d = (fpl == stats_getclientnum() ? stats_player1 : stats_newclient(fpl));
                 
                 const char* ftr_str = (ftr == FTR_PLAYERWISH) ? "FTR_PLAYERWISH" : "FTR_AUTOTEAM";
-                logstats("SV_SETTEAM"
-                            , {   {"ccn", fpl}
-                                , {"new_team", fnt}
-                                , {"ftr",ftr_str}}
-                            , event_logdata);
+                
+                
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("ccn", fpl);
+                outdata.set("new_team", fnt);
+                outdata.set("ftr", ftr_str);
                 /*
                 if(d)
                 {
@@ -1754,17 +1921,22 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
                 }
                 int clientnum = getint(p);
                 
-                logstats("SV_DEMOPLAYBACK"
-                    , {   {"demofile", (const char*)demofile}
-                        , {"clientnum", clientnum}});
-                        
+                dict_t outdata(event_to_str(type));
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                outdata.set("demofile", (const char*)demofile);
+                outdata.set("clientnum", clientnum);
+                
                 break;
             }
             
 
             default:
             {
-                logstats("network-error", event_logdata);
+                dict_t outdata("network-error");
+                outdata.set("cn", cn0);
+                outdata.set("typestr", event_to_str(type));
+                
                 neterr("type");
                 return;
             }
@@ -1772,7 +1944,6 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
         }
     }
     
-    logstats("completed packet", {});
     
     #ifdef _DEBUG
     protocoldebug(false);
