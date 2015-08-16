@@ -1,6 +1,7 @@
 #ifndef LOGSTATS_HPP
 #define LOGSTATS_HPP 1
 
+#include <set>
 #include <string>
 #include <map>
 #include <boost/any.hpp>
@@ -9,6 +10,7 @@
 
 extern std::ostream* logstats_out_ptr;
 extern std::ostream* logstats_debug_ptr;
+extern std::set<std::string> output_types;
 
 typedef std::map<std::string, boost::any> logdata_t;
 

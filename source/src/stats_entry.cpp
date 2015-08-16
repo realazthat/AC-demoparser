@@ -3,6 +3,7 @@
 #include "logstats.hpp"
 #include <iostream>
 #include <fstream>
+#include <boost/algorithm/string.hpp>
 
 void stats_setupdemoplayback(const char* demopath=NULL);
 void stats_readdemo();
@@ -13,9 +14,38 @@ int entry(int argc, const char** argv)
 {
     try {
         TCLAP::CmdLine cmd("dumps stats from a demo file", ' ', AC_STATS_VERSION_STR);
-        TCLAP::UnlabeledValueArg<std::string> demoArg("demopath","path to demo file",true,"","demo file path",cmd);
-        TCLAP::ValueArg<std::string> outputArg("o", "output","path to dump file; dumps to stdout if not not specified",false,"","file path",cmd);
-        TCLAP::ValueArg<std::string> logArg("d", "debug","path to debug log file",false,"","file path",cmd);
+        TCLAP::UnlabeledValueArg<std::string> demoArg(
+            "demopath" /*name*/,
+            "path to demo file" /*desc*/,
+            true /*req*/,
+            "" /*value (default)*/,
+            "demo-file-path" /*typeDesc*/,
+            cmd /*parser*/);
+        TCLAP::ValueArg<std::string> eventsArg(
+            "e" /*flag*/,
+            "events" /*name*/,
+            "path to file containing list of comma-separated events to output;"
+            "defaults to all events if not specified" /*desc*/,
+            false /*req*/,
+            "" /*value (default)*/,
+            "events-file-path" /*typeDesc*/,
+            cmd /*parser*/);
+        TCLAP::ValueArg<std::string> outputArg(
+            "o" /*flag*/,
+            "output" /*name*/,
+            "path to dump file; dumps to stdout if not not specified" /*desc*/,
+            false /*req*/,
+            "" /*value (default)*/,
+            "output-file-path" /*typeDesc*/,
+            cmd /*parser*/);
+        TCLAP::ValueArg<std::string> logArg(
+            "d" /*flag*/,
+            "debug" /*name*/,
+            "path to debug log file" /*desc*/,
+            false /*req*/,
+            "" /*value (default)*/,
+            "log-file-path" /*typeDesc*/,
+            cmd /*parser*/);
         
         
         cmd.parse( argc, argv );
@@ -28,19 +58,35 @@ int entry(int argc, const char** argv)
         
         if (outputArg.isSet() && outputArg.getValue() != "-")
         {
-            out.open(outputArg.getValue(), std::ios::app);
+            out.open(outputArg.getValue(), std::ios::out);
             
             logstats_out_ptr = &out;
         }
         
         if (logArg.isSet())
         {
-            debug.open(logArg.getValue(), std::ios::app);
+            debug.open(logArg.getValue(), std::ios::out);
             
             logstats_debug_ptr = &debug;
         }
         
-        
+        if (eventsArg.isSet())
+        {
+            output_types.clear();
+            std::ifstream eventlist(eventsArg.getValue(), std::ios::in);
+            
+            std::string line;
+            
+            while(std::getline(eventlist, line, ','))
+            {
+                boost::algorithm::trim(line);
+                
+                if (line.size() == 0)
+                    continue;
+                    
+                output_types.insert(line);
+            }
+        }
         
 
         

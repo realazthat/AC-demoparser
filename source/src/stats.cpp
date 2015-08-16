@@ -435,6 +435,123 @@ void stats_servertoclient(int chan, uchar *buf, int len, bool demo)   // process
     
 }
 
+void stats_parsepositions(ucharbuf &p)
+{
+    int type;
+    while(p.remaining()) switch(type = getint(p))
+    {
+        case SV_POS:                        // position of another client
+        case SV_POSC:
+        {
+            int cn, f, g;
+            vec o, vel;
+            
+            float yaw, pitch, roll = 0;
+            bool scoping;//, shoot;
+            if(type == SV_POSC)
+            {
+                bitbuf<ucharbuf> q(p);
+                cn = q.getbits(5);
+                int usefactor = q.getbits(2) + 7;
+                
+                o.x = (q.getbits(usefactor + 4)) / DMF;
+                o.y = (q.getbits(usefactor + 4)) / DMF;
+                yaw = q.getbits(9) * 360.0f / 512;
+                pitch = (q.getbits(8) - 128) * 90.0f / 127;
+                roll = !q.getbits(1) ? (q.getbits(6) - 32) * 20.0f / 31 : 0.0f;
+                if(!q.getbits(1))
+                {
+                    vel.x = (q.getbits(4) - 8) / DVELF;
+                    vel.y = (q.getbits(4) - 8) / DVELF;
+                    vel.z = (q.getbits(4) - 8) / DVELF;
+                }
+                else vel.x = vel.y = vel.z = 0.0f;
+                f = q.getbits(8);
+                int negz = q.getbits(1);
+                int full = q.getbits(1);
+                int s = q.rembits();
+                if(s < 3) s += 8;
+                if(full) s = 11;
+                int z = q.getbits(s);
+                if(negz) z = -z;
+                o.z = z / DMF;
+                scoping = ( q.getbits(1) ? true : false );
+                q.getbits(1);//shoot = ( q.getbits(1) ? true : false );
+            }
+            else
+            {
+                cn = getint(p);
+                o.x   = getuint(p)/DMF;
+                o.y   = getuint(p)/DMF;
+                o.z   = getuint(p)/DMF;
+                yaw   = (float)getuint(p);
+                pitch = (float)getint(p);
+                g = getuint(p);
+                if ((g>>3) & 1) roll  = (float)(getint(p)*20.0f/125.0f);
+                if (g & 1) vel.x = getint(p)/DVELF; else vel.x = 0;
+                if ((g>>1) & 1) vel.y = getint(p)/DVELF; else vel.y = 0;
+                if ((g>>2) & 1) vel.z = getint(p)/DVELF; else vel.z = 0;
+                scoping = ( (g>>4) & 1 ? true : false );
+                //shoot = ( (g>>5) & 1 ? true : false ); // we are not using this yet
+                f = getuint(p);
+            }
+            int seqcolor = (f>>6)&1;
+            playerent *d = getclient(cn);
+            if(!d || seqcolor!=(d->lifesequence&1)) continue;
+            vec oldpos(d->o);
+            float oldyaw = d->yaw, oldpitch = d->pitch;
+            loopi(3)
+            {
+                float dr = o.v[i] - d->o.v[i] + ( i == 2 ? d->eyeheight : 0);
+                if ( !dr ) d->vel.v[i] = 0.0f;
+                else if ( d->vel.v[i] ) d->vel.v[i] = dr * 0.05f + d->vel.v[i] * 0.95f;
+                d->vel.v[i] += vel.v[i];
+                if ( i==2 && d->onfloor && d->vel.v[i] < 0.0f ) d->vel.v[i] = 0.0f;
+            }
+            d->o = o;
+            d->o.z += d->eyeheight;
+            d->yaw = yaw;
+            d->pitch = pitch;
+            //if(d->weaponsel->type == GUN_SNIPER)
+            //{
+            //    sniperrifle *sr = (sniperrifle *)d->weaponsel;
+            //    sr->scoped = d->scoping = scoping;
+            //}
+            d->roll = roll;
+            d->strafe = (f&3)==3 ? -1 : f&3;
+            f >>= 2;
+            d->move = (f&3)==3 ? -1 : f&3;
+            f >>= 2;
+            d->onfloor = f&1;
+            f >>= 1;
+            d->onladder = f&1;
+            f >>= 2;
+            d->last_pos = totalmillis;
+            //updatecrouch(d, f&1);
+            //updatepos(d);
+            //updatelagtime(d);
+            logdata_t event_logdata {{"cn", cn},{"type", type},{"typestr", event_to_str(type)}};
+
+            logstats( type == SV_POS ? "SV_POS" : "SV_POSC",
+                    , {     {"cn": cn},
+                        , {"yaw":yaw},
+                        , {"pitch": pitch}
+                        , {"roll": roll}
+                        , {"scoping": scoping}
+                        , {"o.x": o.x}
+                        , {"o.y": o.y}
+                        , {"o.z": o.z}
+                        , {"vel": d->}
+                    }
+                    , event_logdata);
+        }
+
+        default:
+            neterr("type");
+            return;
+    }
+}
+
 
 
 void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
@@ -451,7 +568,7 @@ void stats_parsemessages(int cn, playerent *d, ucharbuf &p, bool demo)
     {
         type = getint(p);
 
-        logdata_t event_logdata {{"cn", cn},{"type", type},{"typestr", event_to_str(type)},{"typestr", event_to_str(type)}};
+        logdata_t event_logdata {{"cn", cn},{"type", type},{"typestr", event_to_str(type)}};
         logstats("event", event_logdata);
 
         if(demo && stats_watchingdemo && stats_demoprotocol == 1132)

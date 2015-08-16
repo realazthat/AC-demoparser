@@ -15,9 +15,26 @@
 #include <boost/unordered_map.hpp>
 
 
+#include "protocol.h"
+extern const char* event_to_str(int type);
+
+std::set<std::string> all_output_types()
+{
+    std::set<std::string> result;
+    
+    for (int type = 0; type < SV_NUM; ++type)
+    {
+        result.insert(event_to_str(type));
+    }
+    
+    return result;
+}
+
+
+
 std::ostream* logstats_out_ptr = NULL;
 std::ostream* logstats_debug_ptr = NULL;
-
+std::set<std::string> output_types = all_output_types();
 
 /**
  *  From http://stackoverflow.com/a/13399138/586784
@@ -223,7 +240,6 @@ logdata_t merge_logdata(const logdata_t& data0, const logdata_t& data1)
 
 void logstats(const char* type, const logdata_t& data1, const logdata_t& data0)
 {
-    
     static null_stream static_out;
     static null_stream static_debug;
         
@@ -235,23 +251,6 @@ void logstats(const char* type, const logdata_t& data1, const logdata_t& data0)
     json_printer_t printer(/*stream*/ out,/*indent*/ 1, /*formatted*/ false);
     json_printer_t debug_printer(/*stream*/ debug,/*indent*/ 1, /*formatted*/ false);
     
-    std::set<std::string> output_types{
-              "SV_THROWNADE", "SV_SHOTFX"
-            , "SV_MAPCHANGE", "SV_INITCLIENT"
-            , "SV_DAMAGE", "SV_GIBDAMAGE"
-            , "SV_DIED", "SV_GIBDIED"
-            
-            , "SV_RESUME"
-            , "SV_SWITCHNAME"
-            , "SV_CLIENTPING", "SV_PONG"
-            , "SV_TIMEUP"
-            , "SV_SERVMSG"
-            , "SV_FLAGMSG", "SV_FLAGCNT"
-            , "SV_FORCEDEATH"
-            , "SV_ARENAWIN"
-            
-            , "SV_DEMOPLAYBACK"
-            , "nextplayback" };
     
     logdata_t data {{"type", type}, {"info",merge_logdata(data0,data1)}};
     if (output_types.count(type) != 0) {
